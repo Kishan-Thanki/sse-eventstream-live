@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Go SSE Live Stream</title>
+    <title>AI Live Search Assistant</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -75,6 +75,7 @@
       .header {
         text-align: center;
         margin-bottom: 2rem;
+        transition: transform 0.5s ease;
       }
 
       h2 {
@@ -89,6 +90,49 @@
         font-size: 0.95rem;
       }
 
+      .search-box {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .search-input {
+        flex: 1;
+        padding: 1rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 9999px;
+        border: 1px solid var(--border);
+        background: var(--card-bg);
+        color: var(--text-primary);
+        outline: none;
+        box-shadow: var(--shadow);
+        transition: all 0.2s ease;
+      }
+
+      .search-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+      }
+
+      [data-theme="dark"] .search-input:focus {
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+      }
+
+      .search-btn {
+        padding: 0 1.5rem;
+        border-radius: 9999px;
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+      }
+
+      .search-btn:active {
+        transform: scale(0.95);
+      }
+
       .card {
         background: var(--card-bg);
         border: 1px solid var(--border);
@@ -97,6 +141,13 @@
         padding: 2rem;
         position: relative;
         overflow: hidden;
+        transition: all 0.3s ease;
+        display: none; /* Hidden until search */
+      }
+
+      .card.visible {
+        display: block;
+        animation: slideUp 0.4s ease forwards;
       }
 
       .status-indicator {
@@ -121,28 +172,19 @@
       }
 
       .dot.disconnected {
+        background-color: #94a3b8; /* Neutral color when idle/done */
+        box-shadow: none;
+        animation: none;
+      }
+
+      .dot.error {
         background-color: #ef4444;
         box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
         animation: none;
       }
 
-      .refresh-btn {
-        background: none;
-        border: none;
-        color: var(--accent);
-        cursor: pointer;
-        font-size: 1.1rem;
-        padding: 0.2rem;
-        margin-right: 0.5rem;
-        transition: transform 0.2s;
-      }
-
-      .refresh-btn:hover {
-        transform: rotate(45deg);
-      }
-
       .stream-content {
-        min-height: 120px;
+        min-height: 80px;
         font-size: 1.1rem;
         line-height: 1.6;
         color: var(--text-primary);
@@ -158,6 +200,7 @@
         vertical-align: middle;
         animation: blink 1s step-end infinite;
         margin-left: 2px;
+        display: none; /* Hidden initially */
       }
 
       .error-msg {
@@ -192,17 +235,21 @@
         <span id="themeIcon">🌓</span>
       </button>
 
-      <div class="header">
-        <h2>Live Event Stream</h2>
-        <p class="subtitle">Original Server-Sent Events Demo</p>
-        <a href="/search-app" style="color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-top: 10px; display: inline-block;">Try the new AI Search Demo →</a>
+      <div class="header" id="header">
+        <h2>AI Assistant</h2>
+        <p class="subtitle">Ask anything. Powered by Server-Sent Events.</p>
+        <a href="/" style="color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-top: 10px; display: inline-block;">← Back to Original Demo</a>
       </div>
 
-      <div class="card">
+      <form id="searchForm" class="search-box">
+        <input type="text" id="searchInput" class="search-input" placeholder="Try searching for 'golang', 'sse', or 'hello'..." required autocomplete="off">
+        <button type="submit" class="search-btn">Search</button>
+      </form>
+
+      <div class="card" id="resultCard">
         <div class="status-indicator" id="status">
-          <button class="refresh-btn" id="refreshBtn" aria-label="Restart Stream" title="Restart Stream">↻</button>
           <div class="dot" id="dot"></div>
-          <span id="status-text">Connected</span>
+          <span id="statusText">Thinking...</span>
         </div>
         
         <div class="stream-content" id="resp"><span class="cursor" id="cursor"></span></div>
@@ -236,57 +283,77 @@
         applyTheme(currentTheme);
       });
 
-      // SSE Logic
-      let sse;
+      // SSE Search Logic
+      let sse = null;
+      const searchForm = document.getElementById("searchForm");
+      const searchInput = document.getElementById("searchInput");
+      const resultCard = document.getElementById("resultCard");
       const responseElement = document.getElementById("resp");
       const cursor = document.getElementById("cursor");
       const dot = document.getElementById("dot");
-      const statusText = document.getElementById("status-text");
-      const refreshBtn = document.getElementById("refreshBtn");
+      const statusText = document.getElementById("statusText");
 
-      function startStream() {
-        if (sse) sse.close();
+      searchForm.addEventListener("submit", (e) => {
+        e.preventDefault();
         
+        const query = searchInput.value.trim();
+        if (!query) return;
+
+        // Reset UI for new search
+        resultCard.classList.add("visible");
         // Clear previous content but keep cursor
         Array.from(responseElement.childNodes).forEach(node => {
             if (node !== cursor) {
                 responseElement.removeChild(node);
             }
         });
-
-        // Remove any existing error message
-        const existingError = document.querySelector(".error-msg");
-        if (existingError) existingError.remove();
-
-        dot.className = "dot";
-        statusText.innerText = "Connected";
+        
         cursor.style.display = "inline-block";
+        dot.className = "dot"; // reset to active
+        statusText.innerText = "Generating...";
 
-        sse = new EventSource("/events");
+        // Close existing stream if any
+        if (sse) {
+            sse.close();
+        }
+
+        // Start new stream
+        sse = new EventSource(`/search-events?q=${encodeURIComponent(query)}`);
 
         sse.onmessage = (event) => {
-          const textNode = document.createTextNode(event.data + " ");
-          responseElement.insertBefore(textNode, cursor);
+          try {
+              const data = JSON.parse(event.data);
+              
+              if (data.done) {
+                  // Stream explicitly finished by server
+                  sse.close();
+                  dot.className = "dot disconnected";
+                  statusText.innerText = "Finished";
+                  cursor.style.display = "none";
+                  return;
+              }
+
+              if (data.word) {
+                  const textNode = document.createTextNode(data.word + " ");
+                  responseElement.insertBefore(textNode, cursor);
+              }
+          } catch (e) {
+              console.error("Failed to parse SSE JSON data", e);
+          }
         };
 
         sse.onerror = () => {
           sse.close();
-          dot.className = "dot disconnected";
-          statusText.innerText = "Disconnected";
+          dot.className = "dot error";
+          statusText.innerText = "Connection Error";
           cursor.style.display = "none";
 
           const errorSpan = document.createElement("div");
           errorSpan.className = "error-msg";
-          errorSpan.innerHTML = "Stream finished.";
+          errorSpan.innerHTML = "Connection lost. Please try searching again.";
           responseElement.appendChild(errorSpan);
         };
-      }
-
-      // Start stream on load
-      startStream();
-
-      // Restart stream on button click
-      refreshBtn.addEventListener("click", startStream);
+      });
     </script>
   </body>
 </html>

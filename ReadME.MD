@@ -1,33 +1,69 @@
-### NOTE: This is just a simple demostration of real-time events. It is experimental
+# Go SSE EventStream Live Demos
 
-# SSE (SERVER-SIDE EVENTS) 
-Server-Sent Events (SSE) is a technology that allows real-time communication from the server to the client via a persistent connection. 
+This project provides experimental demonstrations of real-time events using **Server-Sent Events (SSE)** in Go. It features two different implementations to showcase the versatility of streaming data to the browser over a single HTTP connection.
 
-The server will send data to the client in a specific format called Server-Sent Events (SSE), which is a standard for delivering data to the browser over a single HTTP connection.
+## Features
 
-SSE allows the server to push messages to the client as long as the connection is open. This is different from regular HTTP requests where the client has to repeatedly request new data.
+- **Real-time Server-to-Client Communication**: Utilizes Server-Sent Events (SSE) to push data from a Go backend to a web client.
+- **Graceful Shutdown**: The Go HTTP server intercepts interrupt signals (like `Ctrl+C`) and performs a graceful shutdown.
+- **Two Unique Demos**:
+  - 🔄 **Original Auto-Play Stream**: A classic raw-text stream that types out predefined "Alert" and "Panic" messages.
+  - 🤖 **Interactive AI Assistant Search**: A dynamic JSON-based stream where the server "generates" live responses based on your search queries.
+- **Modern UI Design**: Clean, responsive frontend interfaces equipped with light/dark theme toggles.
 
-## What is EventSource?
-EventSource is a built-in JavaScript API, data is pushed to the client without the need for repeated requests.
+## How It Works
 
-## How It Works:
-### Client-Side:
-- An EventSource object is created with a URL of the page sending the updates (e.g., /events), establishing a continuous connection to the server.
+### Server-Side (Go)
 
-- The client listens for incoming updates with the onmessage event, Each time an update is received, the onmessage event occurs
+The server exposes multiple endpoints:
 
-- When an onmessage event occurs, displays the data in an HTML element.
+- `/` & `/events`: Serves the original `typer.html` file and handles the raw text stream. It uses `http.Flusher` to push chunks of text with a 500ms delay.
+- `/search-app` & `/search-events`: Serves the new `search.html` file and handles interactive search queries. It parses the `?q=` parameter, simulates a generated response, and streams properly structured JSON objects (e.g., `data: {"word": "..."}`).
 
-#### The EventSource Events:
-- `onerror()`: This event handler is called when an error occurs during the connection or while receiving messages.
+### Client-Side (HTML/JS)
 
-- `close()`: This method closes the connection to the server.
+- **Connection Management**: An `EventSource` object is instantiated to establish a persistent connection. In the interactive demo, older connections are manually closed via `sse.close()` before starting a new search to prevent overlapping streams.
+- **Live Rendering**: The `onmessage` event listener captures each incoming data chunk (either raw text or parsed JSON) and appends it directly before the blinking cursor in the DOM, creating a live typing effect.
+- **Error Handling**: The `onerror` event listener is implemented to gracefully catch disconnects and prevent the browser's default behavior of an infinite automatic reconnection loop once the stream is explicitly finished.
 
-### Server-Side:
-- The server sends data in the SSE format (data: <message>) over a persistent HTTP connection.
+## Prerequisites
 
-- The server must set the Content-Type to text/event-stream and Specify that the page should not caching to ensure the data is sent in real-time.
+- [Go](https://golang.org/dl/) 1.23 or higher
 
-- Flush the output data back to the web page
+## Getting Started
 
-The server sends continuous updates without the client needing to ask repeatedly. Making it real-time.
+1. **Clone or navigate to the repository:**
+
+   ```bash
+   cd go-sse-eventstream-live
+   ```
+
+2. **Run the Go application:**
+
+   ```bash
+   go run main.go
+   ```
+
+   *Optional: You can specify a custom port using the `-addr` flag (default is `:8080`).*
+
+   ```bash
+   go run main.go -addr=":9000"
+   ```
+
+3. **Open the web applications:**
+
+   Open your browser and navigate to the following URLs:
+   - 👉 **[http://localhost:8080](http://localhost:8080)** (Original Auto-Play Demo)
+   - 👉 **[http://localhost:8080/search-app](http://localhost:8080/search-app)** (Interactive AI Search Demo)
+
+## What is SSE (Server-Sent Events)?
+
+Server-Sent Events (SSE) is a technology that allows real-time communication from the server to the client via a persistent, unidirectional connection.
+
+Unlike WebSockets (which are bidirectional) or traditional HTTP polling (where the client repeatedly asks for data), SSE allows the server to efficiently push messages to the client as long as the connection remains open.
+
+### Why use SSE?
+
+- It's a standard HTTP protocol.
+- Built-in reconnection mechanism (though explicitly disabled in these demos to show stream completion).
+- Lightweight and incredibly simple to implement for one-way (server-to-client) real-time data flows like live logs, status updates, or AI text generation.

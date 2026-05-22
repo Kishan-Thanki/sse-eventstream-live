@@ -30,8 +30,14 @@ func main() {
 	// Start the server in a goroutine
 	go func() {
 		slog.Info("Server started")
-		http.HandleFunc("/", home)
-		http.HandleFunc("/events", events)
+		
+		// Original Demo Routes
+		http.HandleFunc("/", homeOriginal)
+		http.HandleFunc("/events", eventsOriginal)
+		
+		// New Search App Routes
+		http.HandleFunc("/search-app", homeSearch)
+		http.HandleFunc("/search-events", eventsSearch)
 
 		// Start the server and listen for errors
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -57,11 +63,19 @@ func main() {
 	}
 }
 
-func home(w http.ResponseWriter, r *http.Request) {
+// ----------------------------------------------------
+// ORIGINAL DEMO (Raw text stream, auto-play)
+// ----------------------------------------------------
+
+func homeOriginal(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
 	http.ServeFile(w, r, "typer.html")
 }
 
-func events(w http.ResponseWriter, r *http.Request) {
+func eventsOriginal(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -69,7 +83,6 @@ func events(w http.ResponseWriter, r *http.Request) {
 	// Alert message
 	alert := []string{"Alert:", "Someone", "just", "forgot", "a", "semicolon", "in", "production!"}
 
-	// Stream each word of the alert message
 	for _, word := range alert {
 		content := fmt.Sprintf("data: %s\n\n", word)
 		w.Write([]byte(content))
@@ -80,7 +93,6 @@ func events(w http.ResponseWriter, r *http.Request) {
 	// Reaction message
 	reaction := []string{"I", "just", "deployed", "a", "week's", "work.", "Wait!", "Whattttt???", "Nooooo!"}
 
-	// Stream each word of the reaction message
 	for _, word := range reaction {
 		content := fmt.Sprintf("data: %s\n\n", word)
 		w.Write([]byte(content))
@@ -91,7 +103,6 @@ func events(w http.ResponseWriter, r *http.Request) {
 	// Panic message
 	panicMsg := []string{"ERROR:", "The", "server", "is", "now", "in", "panic", "mode...", "Please", "consider", "rebooting", "your", "life...", "and", "the", "server 🖥️⚡💔!"}
 
-	// Stream each word of the panic message
 	for _, word := range panicMsg {
 		content := fmt.Sprintf("data: %s\n\n", word)
 		w.Write([]byte(content))
@@ -101,4 +112,61 @@ func events(w http.ResponseWriter, r *http.Request) {
 
 	// Log the panic on the server side
 	fmt.Println("Connection lost due to panic!")
+}
+
+// ----------------------------------------------------
+// AI SEARCH DEMO (JSON stream, interactive search)
+// ----------------------------------------------------
+
+func homeSearch(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "search.html")
+}
+
+func eventsSearch(w http.ResponseWriter, r *http.Request) {
+	// Parse search query
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		query = "nothing"
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	// Get context to listen for client disconnects
+	ctx := r.Context()
+
+	// Simulated AI responses based on keywords
+	var response []string
+	switch query {
+	case "golang":
+		response = []string{"Golang", "is", "a", "statically", "typed,", "compiled", "programming", "language", "designed", "at", "Google.", "It's", "great", "for", "concurrency!"}
+	case "sse":
+		response = []string{"Server-Sent", "Events", "(SSE)", "is", "a", "standard", "describing", "how", "servers", "can", "initiate", "data", "transmission", "towards", "clients", "once", "an", "initial", "client", "connection", "has", "been", "established."}
+	case "hello":
+		response = []string{"Hello", "there!", "I", "am", "a", "live", "search", "assistant", "streaming", "responses", "to", "you", "using", "Go", "and", "Server-Sent", "Events."}
+	default:
+		response = append([]string{"I", "searched", "my", "knowledge", "base", "for", fmt.Sprintf("'%s',", query), "but", "I", "couldn't", "find", "anything", "specific."}, "However,", "this", "demonstrates", "how", "I", "can", "stream", "any", "text", "back", "to", "you", "live!")
+	}
+
+	// Stream each word of the response message
+	for _, word := range response {
+		select {
+		case <-ctx.Done():
+			// Client disconnected prematurely
+			slog.Info("Client disconnected, stopping stream")
+			return
+		default:
+			// Send the data as JSON to be robust
+			content := fmt.Sprintf("data: {\"word\": \"%s\"}\n\n", word)
+			w.Write([]byte(content))
+			w.(http.Flusher).Flush()
+			time.Sleep(time.Millisecond * 200) // Faster typing speed
+		}
+	}
+
+	// Send a special finish event so the client knows we're done
+	finishMsg := "data: {\"done\": true}\n\n"
+	w.Write([]byte(finishMsg))
+	w.(http.Flusher).Flush()
 }
