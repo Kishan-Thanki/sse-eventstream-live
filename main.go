@@ -17,55 +17,42 @@ var addr = flag.String("addr", ":8080", "The address to listen on")
 func main() {
 	flag.Parse()
 
-	// Create a server instance
 	server := &http.Server{
 		Addr:    *addr,
 		Handler: http.DefaultServeMux,
 	}
 
-	// Listen for shutdown signals
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start the server in a goroutine
 	go func() {
 		slog.Info("Server started")
 		
-		// Original Demo Routes
 		http.HandleFunc("/", homeOriginal)
 		http.HandleFunc("/events", eventsOriginal)
 		
-		// New Search App Routes
 		http.HandleFunc("/search-app", homeSearch)
 		http.HandleFunc("/search-events", eventsSearch)
 
-		// Start the server and listen for errors
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Server failed to start", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 	}()
 
-	// Wait for a shutdown signal
 	sig := <-done
 	slog.Info("Received signal, shutting down", slog.String("signal", sig.String()))
 
-	// Graceful shutdown with timeout
 	slog.Info("Shutting down the server")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Attempt to gracefully shut down the server
 	if err := server.Shutdown(ctx); err != nil {
 		slog.Error("Error during server shutdown", slog.String("error", err.Error()))
 	} else {
 		slog.Info("Server shut down gracefully")
 	}
 }
-
-// ----------------------------------------------------
-// ORIGINAL DEMO (Raw text stream, auto-play)
-// ----------------------------------------------------
 
 func homeOriginal(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -80,7 +67,6 @@ func eventsOriginal(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	// Alert message
 	alert := []string{"Alert:", "Someone", "just", "forgot", "a", "semicolon", "in", "production!"}
 
 	for _, word := range alert {
@@ -90,7 +76,6 @@ func eventsOriginal(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Millisecond * 500)
 	}
 
-	// Reaction message
 	reaction := []string{"I", "just", "deployed", "a", "week's", "work.", "Wait!", "Whattttt???", "Nooooo!"}
 
 	for _, word := range reaction {
@@ -100,7 +85,6 @@ func eventsOriginal(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Millisecond * 500)
 	}
 
-	// Panic message
 	panicMsg := []string{"ERROR:", "The", "server", "is", "now", "in", "panic", "mode...", "Please", "consider", "rebooting", "your", "life...", "and", "the", "server 🖥️⚡💔!"}
 
 	for _, word := range panicMsg {
@@ -110,20 +94,14 @@ func eventsOriginal(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Millisecond * 500)
 	}
 
-	// Log the panic on the server side
 	fmt.Println("Connection lost due to panic!")
 }
-
-// ----------------------------------------------------
-// AI SEARCH DEMO (JSON stream, interactive search)
-// ----------------------------------------------------
 
 func homeSearch(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "search.html")
 }
 
 func eventsSearch(w http.ResponseWriter, r *http.Request) {
-	// Parse search query
 	query := r.URL.Query().Get("q")
 	if query == "" {
 		query = "nothing"
@@ -133,10 +111,8 @@ func eventsSearch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	// Get context to listen for client disconnects
 	ctx := r.Context()
 
-	// Simulated AI responses based on keywords
 	var response []string
 	switch query {
 	case "golang":
@@ -149,23 +125,19 @@ func eventsSearch(w http.ResponseWriter, r *http.Request) {
 		response = append([]string{"I", "searched", "my", "knowledge", "base", "for", fmt.Sprintf("'%s',", query), "but", "I", "couldn't", "find", "anything", "specific."}, "However,", "this", "demonstrates", "how", "I", "can", "stream", "any", "text", "back", "to", "you", "live!")
 	}
 
-	// Stream each word of the response message
 	for _, word := range response {
 		select {
 		case <-ctx.Done():
-			// Client disconnected prematurely
 			slog.Info("Client disconnected, stopping stream")
 			return
 		default:
-			// Send the data as JSON to be robust
 			content := fmt.Sprintf("data: {\"word\": \"%s\"}\n\n", word)
 			w.Write([]byte(content))
 			w.(http.Flusher).Flush()
-			time.Sleep(time.Millisecond * 200) // Faster typing speed
+			time.Sleep(time.Millisecond * 200)
 		}
 	}
 
-	// Send a special finish event so the client knows we're done
 	finishMsg := "data: {\"done\": true}\n\n"
 	w.Write([]byte(finishMsg))
 	w.(http.Flusher).Flush()

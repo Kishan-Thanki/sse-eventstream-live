@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Live Search Assistant</title>
+    <title>Live Search</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -142,7 +142,7 @@
         position: relative;
         overflow: hidden;
         transition: all 0.3s ease;
-        display: none; /* Hidden until search */
+        display: none;
       }
 
       .card.visible {
@@ -172,7 +172,7 @@
       }
 
       .dot.disconnected {
-        background-color: #94a3b8; /* Neutral color when idle/done */
+        background-color: #94a3b8;
         box-shadow: none;
         animation: none;
       }
@@ -200,7 +200,7 @@
         vertical-align: middle;
         animation: blink 1s step-end infinite;
         margin-left: 2px;
-        display: none; /* Hidden initially */
+        display: none;
       }
 
       .error-msg {
@@ -236,7 +236,7 @@
       </button>
 
       <div class="header" id="header">
-        <h2>AI Assistant</h2>
+        <h2>Assistant</h2>
         <p class="subtitle">Ask anything. Powered by Server-Sent Events.</p>
         <a href="/" style="color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-top: 10px; display: inline-block;">← Back to Original Demo</a>
       </div>
@@ -257,7 +257,6 @@
     </div>
 
     <script>
-      // Theme Toggle Logic
       const themeToggle = document.getElementById("themeToggle");
       const themeIcon = document.getElementById("themeIcon");
 
@@ -283,7 +282,6 @@
         applyTheme(currentTheme);
       });
 
-      // SSE Search Logic
       let sse = null;
       const searchForm = document.getElementById("searchForm");
       const searchInput = document.getElementById("searchInput");
@@ -299,9 +297,7 @@
         const query = searchInput.value.trim();
         if (!query) return;
 
-        // Reset UI for new search
         resultCard.classList.add("visible");
-        // Clear previous content but keep cursor
         Array.from(responseElement.childNodes).forEach(node => {
             if (node !== cursor) {
                 responseElement.removeChild(node);
@@ -309,15 +305,13 @@
         });
         
         cursor.style.display = "inline-block";
-        dot.className = "dot"; // reset to active
+        dot.className = "dot";
         statusText.innerText = "Generating...";
 
-        // Close existing stream if any
         if (sse) {
             sse.close();
         }
 
-        // Start new stream
         sse = new EventSource(`/search-events?q=${encodeURIComponent(query)}`);
 
         sse.onmessage = (event) => {
@@ -325,7 +319,6 @@
               const data = JSON.parse(event.data);
               
               if (data.done) {
-                  // Stream explicitly finished by server
                   sse.close();
                   dot.className = "dot disconnected";
                   statusText.innerText = "Finished";

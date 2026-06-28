@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Go SSE Live Stream</title>
+    <title>SSE Live Stream</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -195,7 +195,7 @@
       <div class="header">
         <h2>Live Event Stream</h2>
         <p class="subtitle">Original Server-Sent Events Demo</p>
-        <a href="/search-app" style="color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-top: 10px; display: inline-block;">Try the new AI Search Demo →</a>
+        <a href="/search-app" style="color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-top: 10px; display: inline-block;">Try the new Search →</a>
       </div>
 
       <div class="card">
@@ -210,7 +210,6 @@
     </div>
 
     <script>
-      // Theme Toggle Logic
       const themeToggle = document.getElementById("themeToggle");
       const themeIcon = document.getElementById("themeIcon");
 
@@ -236,7 +235,6 @@
         applyTheme(currentTheme);
       });
 
-      // SSE Logic
       let sse;
       const responseElement = document.getElementById("resp");
       const cursor = document.getElementById("cursor");
@@ -247,14 +245,12 @@
       function startStream() {
         if (sse) sse.close();
         
-        // Clear previous content but keep cursor
         Array.from(responseElement.childNodes).forEach(node => {
             if (node !== cursor) {
                 responseElement.removeChild(node);
             }
         });
 
-        // Remove any existing error message
         const existingError = document.querySelector(".error-msg");
         if (existingError) existingError.remove();
 
@@ -282,10 +278,8 @@
         };
       }
 
-      // Start stream on load
       startStream();
 
-      // Restart stream on button click
       refreshBtn.addEventListener("click", startStream);
     </script>
   </body>
